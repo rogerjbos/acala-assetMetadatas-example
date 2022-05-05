@@ -1,15 +1,71 @@
-function main() {
+const { ApiPromise, WsProvider } = require("@polkadot/api");
+const { options } = require("@acala-network/api");
 
-  var tiny = require('tiny-json-http');
-  var url = 'https://api.subquery.network/sq/AcalaNetwork/karura-tokens';
-  var data = '{"query": "{accountBalances (first: 5) {nodes{id accountId tokenId total}}}"}';
+const ACALA_ENDPOINTS = [
+  "wss://acala-rpc-0.aca-api.network",
+  "wss://acala-rpc-1.aca-api.network",
+  "wss://acala-rpc-3.aca-api.network/ws",
+];
+
+const KARURA_ENDPOINTS = [
+  "wss://karura-rpc-0.aca-api.network",
+  "wss://karura-rpc-1.aca-api.network",
+  "wss://karura-rpc-2.aca-api.network/ws",
+];
+
+const getApi = async (chainName: string) => {
+  let apiOptions;
+
+  if (chainName === "acala") {
+    apiOptions = options({ provider: new WsProvider(ACALA_ENDPOINTS) });
+  } else if (chainName === "karura") {
+    apiOptions = options({ provider: new WsProvider(KARURA_ENDPOINTS) });
+  } else {
+    throw "Invalid chain name";
+  }
+
+  return await ApiPromise.create(apiOptions);
+};
+
+const main = async () => {
   
-  tiny.post({url, data}, function __posted(err: any, result: any) {
-    if (err) {
-      console.log(err)
+  const chain: any = 'karura';
+
+  // Sample output
+  // {"name":"0x5461696761204b534d","symbol":"0x7461694b534d","decimals":12,"minimalBalance":100000000}
+
+  const api = await getApi(chain);
+  const ent = await api.query.assetRegistry.assetMetadatas.entries();
+
+  let a;
+  let b: string;
+  var out = "[";  
+  ent.forEach(([{ args: [asset] }, value]:any) => {
+
+    a = asset
+    b = JSON.stringify(a)
+    if (b.search('nativeAssetId') > 0) {
+      b = a.value.toHuman().Token;
+    } else if (b.search('stableAssetId') > 0) {
+      b = "sa://" + a.value.toHuman();
+    } else if (b.search('foreignAssetId') > 0) {
+      b = "fa://" + a.value.toHuman();
     } else {
-      console.log(result)
+      b = "erc20://" + a.value.toHuman();
     }
+    
+    out += `{"id": "${b}", 
+      "name": "${value.toHuman().name}", 
+      "symbol": "${value.toHuman().symbol}", 
+      "decimals": ${value.toHuman().decimals},
+      "minimalBalance": "${value.toHuman().minimalBalance}"},
+      `;
   });
+  out += "{}]";
+
+  let outj = JSON.parse(out);  
+  console.table(outj);
+  
 }
-main()
+main().catch(e => console.error(e)).finally(() => process.exit(0))
+
