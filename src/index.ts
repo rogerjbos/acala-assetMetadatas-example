@@ -31,41 +31,43 @@ const main = async () => {
   
   const chain: any = 'karura';
 
+  const api = await getApi(chain);
+  const ent = await api.query.assetRegistry.assetMetadatas.entries();
   // Sample output
   // {"name":"0x5461696761204b534d","symbol":"0x7461694b534d","decimals":12,"minimalBalance":100000000}
 
-  const api = await getApi(chain);
-  const ent = await api.query.assetRegistry.assetMetadatas.entries();
-
-  let a;
-  let b: string;
+  let b, mb, adj;
   var out = "[";  
   ent.forEach(([{ args: [asset] }, value]:any) => {
 
-    a = asset
-    b = JSON.stringify(a)
+    // format id
+    b = JSON.stringify(asset)
     if (b.search('nativeAssetId') > 0) {
-      b = a.value.toHuman().Token;
+      b = asset.value.toHuman().Token;
     } else if (b.search('stableAssetId') > 0) {
-      b = "sa://" + a.value.toHuman();
+      b = "sa://" + asset.value.toHuman();
     } else if (b.search('foreignAssetId') > 0) {
-      b = "fa://" + a.value.toHuman();
+      b = "fa://" + asset.value.toHuman();
     } else {
-      b = "erc20://" + a.value.toHuman();
+      b = "erc20://" + asset.value.toHuman();
     }
+
+    // convert minimalBalance to a number
+    adj = `${value.toHuman().decimals}`;
+    adj = 10**Number(adj);
+    mb = `${value.toHuman().minimalBalance}`;
+    mb = Number(mb.replace(/,/gi,"")) / adj;
     
     out += `{"id": "${b}", 
       "name": "${value.toHuman().name}", 
       "symbol": "${value.toHuman().symbol}", 
       "decimals": ${value.toHuman().decimals},
-      "minimalBalance": "${value.toHuman().minimalBalance}"},
-      `;
+      "minimalBalance": ${mb}},`;
   });
   out += "{}]";
-
   let outj = JSON.parse(out);  
   console.table(outj);
-  
+
 }
 main().catch(e => console.error(e)).finally(() => process.exit(0))
 
